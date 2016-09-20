@@ -1,15 +1,11 @@
-package com.turn.ttorrent.common;
+package com.turn.ttorrent.common.protocol;
 
-import com.turn.ttorrent.common.protocol.PeerMessage;
-
-import org.testng.annotations.Test;
+import static org.testng.Assert.assertEquals;
 
 import java.nio.ByteBuffer;
 import java.util.BitSet;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertEqualsNoOrder;
-import static org.testng.Assert.assertTrue;
+import org.testng.annotations.Test;
 
 
 public class PeerMessageTest {
