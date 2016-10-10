@@ -60,7 +60,7 @@ real_path() {
 }
 
 base=$(dirname $(real_path $0))
-CPARG=$(find ${base}/../build -name "$EXECJAR" | tail -n 1)
+CPARG=$(find ${base}/../cli/target -name "$EXECJAR" | tail -n 1)
 if [ -z "$CPARG" ] ; then
     echo "Unable to find $EXECJAR"
     exit 1

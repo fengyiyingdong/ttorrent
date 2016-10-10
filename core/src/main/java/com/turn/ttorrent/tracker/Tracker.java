@@ -15,8 +15,6 @@
  */
 package com.turn.ttorrent.tracker;
 
-import com.turn.ttorrent.common.Torrent;
-
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -194,18 +192,20 @@ public class Tracker {
 	 * contained a torrent with the same hash.
 	 */
 	public synchronized TrackedTorrent announce(TrackedTorrent torrent) {
-		TrackedTorrent existing = this.torrents.get(torrent.getHexInfoHash());
+		String hashInfo = torrent.getHashInfo();
+		TrackedTorrent existing = this.torrents.get(hashInfo);
 
 		if (existing != null) {
-			logger.warn("Tracker already announced torrent for '{}' " +
-				"with hash {}.", existing.getName(), existing.getHexInfoHash());
+			logger.warn("Tracker already announced torrent, hash {}."
+					, hashInfo);
 			return existing;
 		}
 
-		this.torrents.put(torrent.getHexInfoHash(), torrent);
-		logger.info("Registered new torrent for '{}' with hash {}.",
-			torrent.getName(), torrent.getHexInfoHash());
-		return torrent;
+		existing = new TrackedTorrent(hashInfo);
+		
+		this.torrents.put(hashInfo, existing);
+		logger.info("Registered new torrent, hash {}.", hashInfo);
+		return existing;
 	}
 
 	/**
@@ -213,12 +213,12 @@ public class Tracker {
 	 *
 	 * @param torrent The Torrent object to stop tracking.
 	 */
-	public synchronized void remove(Torrent torrent) {
-		if (torrent == null) {
+	public synchronized void remove(String hash) {
+		if (hash == null) {
 			return;
 		}
 
-		this.torrents.remove(torrent.getHexInfoHash());
+		this.torrents.remove(hash);
 	}
 
 	/**
@@ -227,12 +227,12 @@ public class Tracker {
 	 * @param torrent The Torrent object to stop tracking.
 	 * @param delay The delay, in milliseconds, before removing the torrent.
 	 */
-	public synchronized void remove(Torrent torrent, long delay) {
-		if (torrent == null) {
+	public synchronized void remove(String hash, long delay) {
+		if (hash == null) {
 			return;
 		}
 
-		new Timer().schedule(new TorrentRemoveTimer(this, torrent), delay);
+		new Timer().schedule(new TorrentRemoveTimer(this, hash), delay);
 	}
 
 	/**
@@ -246,16 +246,16 @@ public class Tracker {
 	private static class TorrentRemoveTimer extends TimerTask {
 
 		private Tracker tracker;
-		private Torrent torrent;
+		private String hash;
 
-		TorrentRemoveTimer(Tracker tracker, Torrent torrent) {
+		TorrentRemoveTimer(Tracker tracker, String hash) {
 			this.tracker = tracker;
-			this.torrent = torrent;
+			this.hash = hash;
 		}
 
 		@Override
 		public void run() {
-			this.tracker.remove(torrent);
+			this.tracker.remove(hash);
 		}
 	}
 

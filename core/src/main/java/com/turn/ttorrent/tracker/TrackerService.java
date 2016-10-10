@@ -15,11 +15,6 @@
  */
 package com.turn.ttorrent.tracker;
 
-import com.turn.ttorrent.bcodec.BEValue;
-import com.turn.ttorrent.bcodec.BEncoder;
-import com.turn.ttorrent.common.protocol.TrackerMessage.*;
-import com.turn.ttorrent.common.protocol.http.*;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
@@ -32,13 +27,22 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
 import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import org.simpleframework.http.Request;
 import org.simpleframework.http.Response;
 import org.simpleframework.http.Status;
 import org.simpleframework.http.core.Container;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.turn.ttorrent.bcodec.BEValue;
+import com.turn.ttorrent.bcodec.BEncoder;
+import com.turn.ttorrent.common.Torrent;
+import com.turn.ttorrent.common.protocol.TrackerMessage.AnnounceRequestMessage;
+import com.turn.ttorrent.common.protocol.TrackerMessage.ErrorMessage;
+import com.turn.ttorrent.common.protocol.TrackerMessage.MessageValidationException;
+import com.turn.ttorrent.common.protocol.http.HTTPAnnounceRequestMessage;
+import com.turn.ttorrent.common.protocol.http.HTTPAnnounceResponseMessage;
+import com.turn.ttorrent.common.protocol.http.HTTPTrackerErrorMessage;
 
 
 /**
@@ -158,16 +162,16 @@ public class TrackerService implements Container {
 			return;
 		}
 
-		// The requested torrent must be announced by the tracker.
-		TrackedTorrent torrent = this.torrents.get(
-			announceRequest.getHexInfoHash());
+		String hash = announceRequest.getHexInfoHash();
+		TrackedTorrent torrent = this.torrents.get(hash);
 		if (torrent == null) {
-			logger.warn("Requested torrent hash was: {}",
-				announceRequest.getHexInfoHash());
-			this.serveError(response, body, Status.BAD_REQUEST,
-				ErrorMessage.FailureReason.UNKNOWN_TORRENT);
-			return;
+			logger.warn("Requested torrent hash : {} not found, to regist now ...",
+					hash);
+			torrent = new TrackedTorrent(hash);
+			this.torrents.put(hash, torrent);
 		}
+		
+		
 
 		AnnounceRequestMessage.RequestEvent event = announceRequest.getEvent();
 		String peerId = announceRequest.getHexPeerId();
@@ -222,7 +226,8 @@ public class TrackerService implements Container {
 				torrent.leechers(),
 				torrent.getSomePeers(peer));
 			WritableByteChannel channel = Channels.newChannel(body);
-			channel.write(announceResponse.getData());
+			ByteBuffer buf = announceResponse.getData();
+			channel.write(buf);
 		} catch (Exception e) {
 			this.serveError(response, body, Status.INTERNAL_SERVER_ERROR,
 				e.getMessage());
@@ -274,7 +279,7 @@ public class TrackerService implements Container {
 		if (params.get("ip") == null) {
 			params.put("ip", new BEValue(
 				request.getClientAddress().getAddress().getHostAddress(),
-				TrackedTorrent.BYTE_ENCODING));
+				Torrent.BYTE_ENCODING));
 		}
 
 
@@ -284,7 +289,7 @@ public class TrackerService implements Container {
 	private void recordParam(Map<String, BEValue> params, String key,
 		String value) {
 		try {
-			value = URLDecoder.decode(value, TrackedTorrent.BYTE_ENCODING);
+			value = URLDecoder.decode(value, Torrent.BYTE_ENCODING);
 
 			for (String f : NUMERIC_REQUEST_FIELDS) {
 				if (f.equals(key)) {
@@ -293,7 +298,7 @@ public class TrackerService implements Container {
 				}
 			}
 
-			params.put(key, new BEValue(value, TrackedTorrent.BYTE_ENCODING));
+			params.put(key, new BEValue(value, Torrent.BYTE_ENCODING));
 		} catch (UnsupportedEncodingException uee) {
 			// Ignore, act like parameter was not there
 			return;
